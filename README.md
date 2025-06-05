@@ -1,29 +1,17 @@
-# Graduation Photo Magician
+# Graduation Photo Downloader
 
-A comprehensive image processing application for downloading, processing, and enhancing graduation photos from snaphoto.gr. The application consists of three main stages:
+A Python tool for downloading graduation photos from snaphoto.gr in bulk. This tool fetches both full-size and thumbnail images and organizes them into separate directories.
 
-1. **Image Downloader** - Downloads images from snaphoto.gr
-2. **Watermark Remover** - Removes watermarks from images (coming soon)
-3. **Image Upscaler** - Upscales images for better quality (coming soon)
+The purpose of this tool is to be able to collect all your relevant photos, filter them so as to make an informed decision about which ones to purchase.
 
-## Project Structure
+## Features
 
-```
-grad-photo-magician/
-├── src/
-│   └── tools/
-│       ├── image_downloader/      # Stage 1: Download images
-│       ├── watermark_remover/     # Stage 2: Remove watermarks
-│       └── image_upscaler/        # Stage 3: Upscale images
-├── data/
-│   ├── img_source/               # Original downloaded images
-│   ├── img_nowatermark/          # Images with watermarks removed
-│   └── thumbnails/               # Thumbnail images from downloads
-├── img_res/                      # Final processed images
-├── download_images.py            # Main entry point for downloads
-├── example_input.txt             # Example input file format
-└── requirements.txt              # Python dependencies
-```
+- **Bulk Download**: Download multiple photos at once using photo ID ranges or individual IDs
+- **Dual Quality**: Automatically downloads both large and thumbnail versions
+- **Organized Storage**: Saves images to `data/large/` and `data/thumb/` directories
+- **Concurrent Downloads**: Fast parallel downloading with configurable concurrency
+- **Flexible Input**: Supports individual photo IDs and ranges
+- **Resume Support**: Skips already downloaded files
 
 ## Installation
 
@@ -33,146 +21,67 @@ git clone <repository-url>
 cd grad-photo-magician
 ```
 
-2. Install the required dependencies:
+2. Install required dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-## Stage 1: Image Downloader
+## Usage
 
-### Features
+### Basic Usage
 
-- Downloads graduation photos from snaphoto.gr
-- Supports concurrent downloads for faster processing
-- Handles both single photo IDs and ranges
-- Progress tracking with visual progress bars
-- Automatic retry mechanism for failed downloads
-- Skips already downloaded files
-
-### Usage
-
-#### Command Line Interface
+Create an `input.txt` file with your graduation ID and photo IDs, then run:
 
 ```bash
-python download_images.py input_file.txt [options]
+python -m download_images.py
 ```
 
-**Options:**
-- `-o, --output DIR`: Output directory (default: `data/thumbnails`)
-- `-c, --concurrent N`: Maximum concurrent downloads (default: 10)
-- `--version`: Show version information
+### Command Line Options
 
-#### Input File Format
+| Option | Description | Default |
+|--------|-------------|---------|
+| `input_file` | Path to input file | `input.txt` |
+| `--sizes` | Image sizes to download (`large`, `thumb`, or both) | `large thumb` |
+| `--max-concurrent` | Maximum concurrent downloads | `10` |
 
-Create a text file with the following format:
+## Input File Format
 
-```
-GRADUATION_ID
-PHOTO_ID_1
-PHOTO_ID_2,PHOTO_ID_N
-PHOTO_ID_RANGE_START,PHOTO_ID_RANGE_END
-...
-```
+Create an `input.txt` file with the following format:
 
-**Example (`example_input.txt`):**
 ```
 12345
-1001
-1002,1010
-1015
-1020,1025
-1030
+00001
+00005,0010
+00015
+00020,0025
+00030
 ```
 
-This will download:
-- Graduation ID: `12345`
-- Photo ID: `1001`
-- Photo IDs: `1002` through `1010` (inclusive)
-- Photo ID: `1015`
-- Photo IDs: `1020` through `1025` (inclusive)
-- Photo ID: `1030`
+**Format Rules:**
+- **First line**: Graduation ID (required)
+- **Subsequent lines**: Photo IDs or ranges
+  - Single photo ID: `00001`
+  - Range: `00005,00010` (downloads 00005, 00006, 00007, 00008, 00009, 00010)
+  - Padding is preserved (e.g., `00001` stays as `00001`, not `1`)
 
-#### Example Usage
+### Example Input File
 
-```bash
-# Basic usage
-python download_images.py example_input.txt
-
-# Custom output directory
-python download_images.py example_input.txt -o data/my_photos
-
-# Increase concurrent downloads for faster processing
-python download_images.py example_input.txt -c 20
-
-# Help
-python download_images.py --help
+```txt
+2024GRAD123
+00001
+00002
+00005,00015
+00020
+00025,00030
+00035
+00040,00045
 ```
 
-### URL Format
+This example will download:
+- Graduation ID: `2024GRAD123`
+- Individual photos: `0001`, `0002`, `0020`, `0035`
+- Photo ranges: `0005-0015` (11 photos), `0025-0030` (6 photos), `0040-0045` (6 photos)
+- **Total**: 26 photos in both large and thumbnail formats (52 files)
 
-The downloader constructs URLs in the following format:
-```
-https://img.snaphoto.gr/orkomosies/{GRADUATION_ID}/large/{PHOTO_ID}.jpg
-```
 
-### Programming Interface
 
-You can also use the downloader programmatically:
-
-```python
-from src.tools.image_downloader import ImageDownloader
-
-# Create downloader instance
-downloader = ImageDownloader(output_dir="data/my_photos")
-
-# Download from input file
-downloader.download_from_file("input.txt", max_concurrent=10)
-
-# Or use directly with graduation ID and photo IDs
-import asyncio
-graduation_id = "12345"
-photo_ids = [1001, 1002, 1003]
-successful, failed = asyncio.run(
-    downloader.download_images(graduation_id, photo_ids)
-)
-```
-
-## Error Handling
-
-The application includes comprehensive error handling:
-
-- **Invalid input format**: Warnings for malformed lines, continues processing
-- **Network errors**: Automatic retry with exponential backoff
-- **File system errors**: Graceful handling of permission issues
-- **Missing files**: Clear error messages for non-existent input files
-
-## Performance
-
-- **Concurrent downloads**: Configurable concurrent download limit (default: 10)
-- **Memory efficient**: Streams large files without loading into memory
-- **Resume capability**: Skips already downloaded files on restart
-- **Progress tracking**: Real-time progress bars using tqdm
-
-## Requirements
-
-- Python 3.7+
-- aiohttp for async HTTP requests
-- aiofiles for async file operations
-- tqdm for progress bars
-- Pillow for image processing (future stages)
-
-## Contributing
-
-This project is structured for easy extension. Each processing stage is modular and independent.
-
-## License
-
-See LICENSE file for details.
-
-## Upcoming Features
-
-- **Stage 2**: Watermark removal using AI/ML techniques
-- **Stage 3**: Image upscaling using super-resolution algorithms
-- **Batch processing**: Process entire directories
-- **GUI interface**: User-friendly graphical interface
-- **Configuration files**: YAML/JSON configuration support

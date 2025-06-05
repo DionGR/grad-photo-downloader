@@ -2,14 +2,12 @@
 """
 Main entry point for the Image Downloader tool
 """
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
 
 import sys
 import os
-
-# Add src to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-
-from tools.image_downloader.cli import main
+from tools.cli import main
 
 if __name__ == '__main__':
     main() 

@@ -1,30 +1,32 @@
 """
-Image Downloader for graduation photos from snaphoto.gr
+Image Downloader for photos
 """
 
-import os
 import asyncio
 import aiohttp
 import aiofiles
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Tuple, Literal
 from tqdm.asyncio import tqdm
 
 
 class ImageDownloader:
-    """Downloads graduation photos from snaphoto.gr"""
-    
     BASE_URL = "https://img.snaphoto.gr/orkomosies"
     
-    def __init__(self, output_dir: str = "data/img_source"):
+    def __init__(self, output_dir: str = "data"):
         """
         Initialize the ImageDownloader
         
         Args:
-            output_dir: Directory to save downloaded images
+            output_dir: Base directory to save downloaded images
         """
         self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(parents=True, exist_ok=True)
+        # Create subdirectories for large and thumb images
+        self.large_dir = self.output_dir / "large"
+        self.thumb_dir = self.output_dir / "thumb"
+        
+        self.large_dir.mkdir(parents=True, exist_ok=True)
+        self.thumb_dir.mkdir(parents=True, exist_ok=True)
         
     def parse_input_file(self, file_path: str) -> Tuple[str, List[str]]:
         """
@@ -68,35 +70,41 @@ class ImageDownloader:
         
         return graduation_id, photo_ids
     
-    def generate_url(self, graduation_id: str, photo_id: str) -> str:
+    def generate_url(self, graduation_id: str, photo_id: str, size: Literal["large", "thumb"]) -> str:
         """
         Generate the download URL for a photo
         
         Args:
             graduation_id: The graduation ID
             photo_id: The photo ID (as string to preserve padding)
+            size: The size type ("large" or "thumb")
             
         Returns:
             Complete URL for the photo
         """
-        return f"{self.BASE_URL}/{graduation_id}/large/{photo_id}.jpg"
+        return f"{self.BASE_URL}/{graduation_id}/{size}/{photo_id}.jpg"
     
-    def get_output_path(self, graduation_id: str, photo_id: str) -> Path:
+    def get_output_path(self, graduation_id: str, photo_id: str, size: Literal["large", "thumb"]) -> Path:
         """
         Generate the output file path for a photo
         
         Args:
             graduation_id: The graduation ID
             photo_id: The photo ID (as string to preserve padding)
+            size: The size type ("large" or "thumb")
             
         Returns:
             Path object for the output file
         """
         filename = f"{graduation_id}_{photo_id}.jpg"
-        return self.output_dir / filename
+        if size == "large":
+            return self.large_dir / filename
+        else:  # thumb
+            return self.thumb_dir / filename
     
     async def download_single_image(self, session: aiohttp.ClientSession, 
                                   graduation_id: str, photo_id: str, 
+                                  size: Literal["large", "thumb"],
                                   semaphore: asyncio.Semaphore) -> bool:
         """
         Download a single image
@@ -105,14 +113,15 @@ class ImageDownloader:
             session: aiohttp client session
             graduation_id: The graduation ID
             photo_id: The photo ID (as string to preserve padding)
+            size: The size type ("large" or "thumb")
             semaphore: Semaphore to limit concurrent downloads
             
         Returns:
             True if download was successful, False otherwise
         """
         async with semaphore:
-            url = self.generate_url(graduation_id, photo_id)
-            output_path = self.get_output_path(graduation_id, photo_id)
+            url = self.generate_url(graduation_id, photo_id, size)
+            output_path = self.get_output_path(graduation_id, photo_id, size)
             
             # Skip if file already exists
             if output_path.exists():
@@ -134,6 +143,7 @@ class ImageDownloader:
                 return False
     
     async def download_images(self, graduation_id: str, photo_ids: List[str], 
+                            sizes: List[Literal["large", "thumb"]] = ["large", "thumb"],
                             max_concurrent: int = 10) -> Tuple[int, int]:
         """
         Download multiple images concurrently
@@ -141,6 +151,7 @@ class ImageDownloader:
         Args:
             graduation_id: The graduation ID
             photo_ids: List of photo IDs to download (as strings to preserve padding)
+            sizes: List of sizes to download ("large", "thumb", or both)
             max_concurrent: Maximum number of concurrent downloads
             
         Returns:
@@ -149,10 +160,12 @@ class ImageDownloader:
         semaphore = asyncio.Semaphore(max_concurrent)
         
         async with aiohttp.ClientSession() as session:
-            tasks = [
-                self.download_single_image(session, graduation_id, photo_id, semaphore)
-                for photo_id in photo_ids
-            ]
+            tasks = []
+            for photo_id in photo_ids:
+                for size in sizes:
+                    tasks.append(
+                        self.download_single_image(session, graduation_id, photo_id, size, semaphore)
+                    )
             
             results = await tqdm.gather(*tasks, desc="Downloading images")
             
@@ -161,12 +174,15 @@ class ImageDownloader:
         
         return successful, failed
     
-    def download_from_file(self, input_file: str, max_concurrent: int = 10) -> None:
+    def download_from_file(self, input_file: str, 
+                          sizes: List[Literal["large", "thumb"]] = ["large", "thumb"],
+                          max_concurrent: int = 10) -> None:
         """
         Download images based on input file
         
         Args:
             input_file: Path to the input file
+            sizes: List of sizes to download ("large", "thumb", or both)
             max_concurrent: Maximum number of concurrent downloads
         """
         try:
@@ -174,10 +190,13 @@ class ImageDownloader:
             
             print(f"Graduation ID: {graduation_id}")
             print(f"Total photos to download: {len(photo_ids)}")
+            print(f"Sizes to download: {', '.join(sizes)}")
             print(f"Output directory: {self.output_dir}")
+            print(f"Large images: {self.large_dir}")
+            print(f"Thumbnail images: {self.thumb_dir}")
             
             successful, failed = asyncio.run(
-                self.download_images(graduation_id, photo_ids, max_concurrent)
+                self.download_images(graduation_id, photo_ids, sizes, max_concurrent)
             )
             
             print(f"\nDownload completed!")
