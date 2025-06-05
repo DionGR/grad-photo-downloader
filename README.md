@@ -17,7 +17,7 @@ The purpose of this tool is to be able to collect all your relevant photos, filt
 
 1. Clone this repository:
 ```bash
-git clone github.com/DionGR/grad-photo-downloader.git
+git clone https://github.com/DionGR/grad-photo-downloader
 cd grad-photo-magician
 ```
 
