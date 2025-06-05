@@ -1,0 +1,4 @@
+GRAD_ID
+photo_ID1
+photo_from_ID5,photo_to_ID10
+photo_ID20
